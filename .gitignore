@@ -1,0 +1,10 @@
+# Go files to ignore
+/bin/
+/data/
+*.exe
+*.out
+*.test
+*.log
+
+# System files
+.DS_Store
