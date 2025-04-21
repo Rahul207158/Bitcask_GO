@@ -1,24 +1,25 @@
 package main
 
 import (
-	"github.com/Rahul207158/Bitcask_GO/kvstore"
 	"fmt"
-	"time"
+	"net/http"
+
+	"github.com/Rahul207158/Bitcask_GO/api"
+	"github.com/Rahul207158/Bitcask_GO/kvstore"
 )
 
 func main(){
-	entry :=	kvstore.Entry{
-		TimeStamp : time.Now().Unix(),
-		Key:       "foo",
-		Value:     "water",
-		KeySize:   int32(len("foo")),
-		ValueSize: int32(len("water")),
-	}
+	kvstore.KeyDir =make(map[string]int64)
 
-	err:=kvstore.WriteEntry("data/store_data",entry)
-	if(err !=nil){
-	fmt.Print("ERR",err)
-	}
-	val,_:=kvstore.ReadEntry("data/store_data",0)
-	fmt.Print("VALUE IS  ",val)
+	http.HandleFunc("/put", func(w http.ResponseWriter, r *http.Request) {
+		api.PutHandler(w, r) // Now we can access KeyDir directly in the handler
+	})
+	http.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
+		api.GetHandler(w, r) // Now we can access KeyDir directly in the handler
+	})
+
+	// Start the server
+	fmt.Println("SERVER Started on 8080")
+	http.ListenAndServe(":8080", nil)
+
 }

@@ -6,14 +6,17 @@ import (
 	"io"
 	"os"
 )
-func WriteEntry (filepath string ,entry Entry ) error{
+func WriteEntry (filepath string ,entry Entry ) (int64,error){
    ///
    file, err := os.OpenFile(filepath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
   if(err!=nil){
    fmt.Print("ERR in opening file",err)
   }
   defer file.Close()
-
+   offset,err:=file.Seek(0,io.SeekEnd)    // return the offset 
+   if(err!=nil){
+      fmt.Print("ERR in seeking the offset before writing ",err)
+     }
   err=binary.Write(file,binary.LittleEndian,entry.TimeStamp)
   if(err!=nil){
    fmt.Print("ERR in timestamp",err)
@@ -37,7 +40,7 @@ func WriteEntry (filepath string ,entry Entry ) error{
    if(err!=nil){
       fmt.Print("Error in writing value",err)
    }  
-   return nil;
+   return offset,nil;
 }
 func ReadEntry(filepath string, offset int64) (string, error) {
 	file, err := os.Open(filepath)
@@ -76,7 +79,7 @@ func ReadEntry(filepath string, offset int64) (string, error) {
 	valueBuf := make([]byte, valueSize)
 	n, err := file.Read(valueBuf)
    fmt.Printf("Read %d bytes, expected %d\n", n, valueSize)
-   fmt.Printf("Raw value bytes: %v\n", valueBuf)
+  // fmt.Printf("Raw value bytes: %v\n", valueBuf)
 
 	if err != nil {
 		fmt.Println("Error in reading value", err)
