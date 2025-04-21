@@ -1,13 +1,22 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
-	"encoding/json"
+
 	"github.com/Rahul207158/Bitcask_GO/kvstore"
 )
-func PutHandler(w http.ResponseWriter, r *http.Request) {
+
+type Server struct {
+	Store *kvstore.Store
+}
+
+func NewServer(store *kvstore.Store) *Server {
+	return &Server{Store: store}
+}
+
+func (s *Server) PutHandler(w http.ResponseWriter, r *http.Request) {
 	var payload kvstore.RequestPayload
 	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
@@ -15,48 +24,39 @@ func PutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("Received:", payload.Key, payload.Value)
-
 	if payload.Key == "" || payload.Value == "" {
 		http.Error(w, "Missing key or value", http.StatusBadRequest)
 		return
 	}
 
-	entry := kvstore.Entry{
-		TimeStamp:  time.Now().Unix(),
-		Key:        payload.Key,
-		Value:      payload.Value,
-		KeySize:    int32(len(payload.Key)),
-		ValueSize:  int32(len(payload.Value)),
-	}
-
-	offset, err := kvstore.WriteEntry("data/store_data", entry)
+	err = s.Store.Put(payload.Key, payload.Value)
 	if err != nil {
-		fmt.Println("ERR is there in write  ", err)
+		fmt.Println("Error putting value:", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	kvstore.KeyDir[entry.Key] = offset
-
-	fmt.Fprintf(w, "Entry added successfully with offset %d\n", offset)
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Entry added successfully\n")
 }
 
-
-func GetHandler(w http.ResponseWriter,r *http.Request){
+func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
 	key := r.URL.Query().Get("key")
 	if key == "" {
 		http.Error(w, "Key is required", http.StatusBadRequest)
 		return
 	}
-	offset,exist:=kvstore.KeyDir[key]
-	if !exist{
-		http.Error(w, "Key not found", http.StatusNotFound)
+
+	value, err := s.Store.Get(key)
+	if err != nil {
+		if err.Error() == fmt.Sprintf("key not found: %s", key) {
+			http.Error(w, "Key not found", http.StatusNotFound)
+		} else {
+			fmt.Println("Error getting value:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
 		return
 	}
-	value,err:=kvstore.ReadEntry("data/store_data",offset)
-	if err!=nil{
-		fmt.Println("err in reading file",err)
-	}
+
 	fmt.Fprintf(w, "Value for key '%s': %s\n", key, value)
 }
