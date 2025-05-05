@@ -35,6 +35,11 @@ func WriteEntry(filepath string, entry Entry) (int64, error) {
 		return 0, fmt.Errorf("failed to write value size: %w", err)
 	}
 
+	// Write entry type
+	if err = binary.Write(file, binary.LittleEndian, entry.Type); err != nil {
+		return 0, fmt.Errorf("failed to write entry type: %w", err)
+	}
+
 	// Write key
 	if _, err = file.Write([]byte(entry.Key)); err != nil {
 		return 0, fmt.Errorf("failed to write key: %w", err)
@@ -61,13 +66,19 @@ func ReadEntry(filepath string, offset int64) (string, error) {
 		return "", fmt.Errorf("failed to seek to entry: %w", err)
 	}
 
-	// Read keySize and valueSize (4 + 4 = 8 bytes)
-	sizeBuf := make([]byte, 8)
+	// Read keySize, valueSize, and type (4 + 4 + 1 = 9 bytes)
+	sizeBuf := make([]byte, 9)
 	if _, err := io.ReadFull(file, sizeBuf); err != nil {
 		return "", fmt.Errorf("failed to read size buffer: %w", err)
 	}
 	keySize := int32(binary.LittleEndian.Uint32(sizeBuf[0:4]))
 	valueSize := int32(binary.LittleEndian.Uint32(sizeBuf[4:8]))
+	entryType := EntryType(sizeBuf[8])
+
+	// If this is a tombstone entry, return an error
+	if entryType == EntryTombstone {
+		return "", fmt.Errorf("key has been deleted")
+	}
 
 	// Skip the key
 	_, err = file.Seek(int64(keySize), io.SeekCurrent)

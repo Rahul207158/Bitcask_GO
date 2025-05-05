@@ -60,3 +60,30 @@ func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, "Value for key '%s': %s\n", key, value)
 }
+
+func (s *Server) DeleteHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	key := r.URL.Query().Get("key")
+	if key == "" {
+		http.Error(w, "Key is required", http.StatusBadRequest)
+		return
+	}
+
+	err := s.Store.Delete(key)
+	if err != nil {
+		if err.Error() == fmt.Sprintf("key not found: %s", key) {
+			http.Error(w, "Key not found", http.StatusNotFound)
+		} else {
+			fmt.Println("Error deleting key:", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Key '%s' deleted successfully\n", key)
+}

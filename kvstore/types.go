@@ -5,10 +5,19 @@ import (
 	"sync"
 )
 
+// EntryType represents the type of entry (normal or tombstone)
+type EntryType byte
+
+const (
+	EntryNormal    EntryType = 0
+	EntryTombstone EntryType = 1
+)
+
 type Entry struct {
 	TimeStamp int64
 	KeySize   int32
 	ValueSize int32
+	Type      EntryType
 	Key       string
 	Value     string
 }

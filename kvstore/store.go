@@ -71,10 +71,11 @@ func (s *Store) Put(key, value string) error {
 		Value:     value,
 		KeySize:   int32(len(key)),
 		ValueSize: int32(len(value)),
+		Type:      EntryNormal,
 	}
 
 	// Check if we need to rotate the file
-	entrySize := int64(16 + len(key) + len(value)) // timestamp(8) + keySize(4) + valueSize(4) + key + value
+	entrySize := int64(17 + len(key) + len(value)) // timestamp(8) + keySize(4) + valueSize(4) + type(1) + key + value
 	if s.ActiveFileSize+entrySize > s.MaxFileSize {
 		if err := s.rotateActiveFile(); err != nil {
 			return fmt.Errorf("failed to rotate file: %w", err)
@@ -119,6 +120,55 @@ func (s *Store) Get(key string) (string, error) {
 	}
 
 	return value, nil
+}
+
+// Delete deletes a key from the store
+func (s *Store) Delete(key string) error {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	// Check if the key exists
+	if _, exists := s.KeyDir[key]; !exists {
+		return fmt.Errorf("key not found: %s", key)
+	}
+
+	// Create a tombstone entry
+	entry := Entry{
+		TimeStamp: time.Now().Unix(),
+		Key:       key,
+		Value:     "", // Empty value for tombstone
+		KeySize:   int32(len(key)),
+		ValueSize: 0,
+		Type:      EntryTombstone,
+	}
+
+	// Calculate entry size (including 1 byte for type)
+	entrySize := int64(17 + len(key)) // timestamp(8) + keySize(4) + valueSize(4) + type(1) + key
+
+	// Check if we need to rotate the file
+	if s.ActiveFileSize+entrySize > s.MaxFileSize {
+		if err := s.rotateActiveFile(); err != nil {
+			return fmt.Errorf("failed to rotate file: %w", err)
+		}
+	}
+
+	// Write the tombstone entry
+	fullPath := filepath.Join(s.DataDir, s.ActiveFilename)
+	offset, err := WriteEntry(fullPath, entry)
+	if err != nil {
+		return fmt.Errorf("failed to write tombstone entry: %w", err)
+	}
+
+	// Update KeyDir with tombstone location
+	s.KeyDir[key] = KeyLocation{
+		Filename: s.ActiveFilename,
+		Offset:   offset,
+	}
+
+	// Update the active file size
+	s.ActiveFileSize += entrySize
+
+	return nil
 }
 
 // Close closes the active file

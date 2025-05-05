@@ -28,6 +28,7 @@ func main() {
 	// Set up HTTP handlers
 	http.HandleFunc("/put", server.PutHandler)
 	http.HandleFunc("/get", server.GetHandler)
+	http.HandleFunc("/delete", server.DeleteHandler)
 
 	// Set up graceful shutdown
 	c := make(chan os.Signal, 1)
